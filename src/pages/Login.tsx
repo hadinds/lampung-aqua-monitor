@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Droplets, Lock, Mail, User } from 'lucide-react';
+import { Droplets, Lock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('field_officer');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -24,7 +21,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password, role);
+      const success = await login(username, password);
       if (success) {
         toast({
           title: 'Login Berhasil',
@@ -34,7 +31,7 @@ const Login = () => {
       } else {
         toast({
           title: 'Login Gagal',
-          description: 'Email atau password tidak valid',
+          description: 'Username atau password tidak valid',
           variant: 'destructive',
         });
       }
@@ -77,15 +74,15 @@ const Login = () => {
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="input-group">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@psda.lampung.go.id"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="text"
+                  placeholder="Masukkan username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="pl-10"
                   required
                 />
@@ -108,23 +105,6 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="input-group">
-              <Label htmlFor="role">Role</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
-                <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
-                  <SelectTrigger className="pl-10">
-                    <SelectValue placeholder="Pilih role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                    <SelectItem value="field_officer">Petugas Lapangan</SelectItem>
-                    <SelectItem value="manager">Kepala Bidang</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <Button 
               type="submit" 
               className="w-full h-11 font-medium"
@@ -134,9 +114,14 @@ const Login = () => {
             </Button>
           </form>
 
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            Demo: Gunakan password minimal 4 karakter
-          </p>
+          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Akun Demo:</p>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p><span className="font-medium">Admin:</span> admin / admin</p>
+              <p><span className="font-medium">Petugas:</span> petugas / petugas</p>
+              <p><span className="font-medium">Kadis:</span> kadis / Kadis</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

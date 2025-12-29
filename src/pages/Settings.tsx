@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,19 +10,99 @@ import {
   Bell,
   Shield,
   Database,
-  Palette,
   Save,
+  Key,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
+  const { user, updateCredentials } = useAuth();
+
+  // Credential change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleSave = () => {
     toast({
       title: 'Berhasil',
       description: 'Pengaturan berhasil disimpan',
     });
+  };
+
+  const handleCredentialUpdate = async () => {
+    if (!currentPassword) {
+      toast({
+        title: 'Error',
+        description: 'Masukkan password saat ini',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (newPassword && newPassword !== confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'Password baru tidak cocok',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!newUsername && !newPassword) {
+      toast({
+        title: 'Error',
+        description: 'Masukkan username baru atau password baru',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+    
+    try {
+      const success = await updateCredentials(
+        currentPassword,
+        newUsername || undefined,
+        newPassword || undefined
+      );
+
+      if (success) {
+        toast({
+          title: 'Berhasil',
+          description: 'Kredensial berhasil diperbarui',
+        });
+        // Clear form
+        setCurrentPassword('');
+        setNewUsername('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast({
+          title: 'Gagal',
+          description: 'Password saat ini salah atau username sudah digunakan',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Terjadi kesalahan saat memperbarui kredensial',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const roleLabels = {
+    admin: 'Administrator',
+    field_officer: 'Petugas Lapangan',
+    manager: 'Kepala Dinas',
   };
 
   return (
@@ -43,29 +123,94 @@ const Settings: React.FC = () => {
             </div>
             <div>
               <CardTitle className="text-base font-heading">Profil Pengguna</CardTitle>
-              <CardDescription>Kelola informasi akun Anda</CardDescription>
+              <CardDescription>Informasi akun Anda</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="input-group">
-              <Label htmlFor="name">Nama Lengkap</Label>
-              <Input id="name" defaultValue="Administrator" />
+              <Label>Nama</Label>
+              <Input value={user?.name || ''} disabled className="bg-muted" />
             </div>
             <div className="input-group">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="admin@psda.lampung.go.id" />
-            </div>
-            <div className="input-group">
-              <Label htmlFor="phone">Nomor Telepon</Label>
-              <Input id="phone" defaultValue="0721-123456" />
-            </div>
-            <div className="input-group">
-              <Label htmlFor="position">Jabatan</Label>
-              <Input id="position" defaultValue="Administrator Sistem" />
+              <Label>Role</Label>
+              <Input value={user?.role ? roleLabels[user.role] : ''} disabled className="bg-muted" />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Credential Change */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-warning/10">
+              <Key className="w-5 h-5 text-warning" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-heading">Ubah Kredensial</CardTitle>
+              <CardDescription>Ubah username atau password Anda</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="input-group">
+            <Label htmlFor="currentPassword">Password Saat Ini *</Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              placeholder="Masukkan password saat ini"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+          </div>
+          
+          <Separator />
+          
+          <div className="input-group">
+            <Label htmlFor="newUsername">Username Baru (opsional)</Label>
+            <Input
+              id="newUsername"
+              type="text"
+              placeholder="Kosongkan jika tidak ingin mengubah"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="input-group">
+              <Label htmlFor="newPassword">Password Baru (opsional)</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Kosongkan jika tidak ingin mengubah"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="input-group">
+              <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Ulangi password baru"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={!newPassword}
+              />
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleCredentialUpdate} 
+            disabled={isUpdating}
+            className="gap-2"
+          >
+            <Key className="w-4 h-4" />
+            {isUpdating ? 'Memproses...' : 'Perbarui Kredensial'}
+          </Button>
         </CardContent>
       </Card>
 
@@ -73,8 +218,8 @@ const Settings: React.FC = () => {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-warning/10">
-              <Bell className="w-5 h-5 text-warning" />
+            <div className="p-2 rounded-lg bg-accent/20">
+              <Bell className="w-5 h-5 text-accent" />
             </div>
             <div>
               <CardTitle className="text-base font-heading">Notifikasi</CardTitle>
@@ -129,20 +274,24 @@ const Settings: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="input-group">
-              <Label htmlFor="currentPassword">Password Saat Ini</Label>
-              <Input id="currentPassword" type="password" placeholder="••••••••" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Autentikasi Dua Faktor</p>
+              <p className="text-sm text-muted-foreground">
+                Tambah lapisan keamanan ekstra
+              </p>
             </div>
-            <div></div>
-            <div className="input-group">
-              <Label htmlFor="newPassword">Password Baru</Label>
-              <Input id="newPassword" type="password" placeholder="••••••••" />
+            <Switch />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Riwayat Login</p>
+              <p className="text-sm text-muted-foreground">
+                Simpan riwayat aktivitas login
+              </p>
             </div>
-            <div className="input-group">
-              <Label htmlFor="confirmPassword">Konfirmasi Password</Label>
-              <Input id="confirmPassword" type="password" placeholder="••••••••" />
-            </div>
+            <Switch defaultChecked />
           </div>
         </CardContent>
       </Card>
@@ -151,8 +300,8 @@ const Settings: React.FC = () => {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-accent/20">
-              <Database className="w-5 h-5 text-accent" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Database className="w-5 h-5 text-primary" />
             </div>
             <div>
               <CardTitle className="text-base font-heading">Sistem</CardTitle>
