@@ -1,47 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Info } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { mockAreas } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
-// Fix for default marker icons in react-leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-// Custom marker icons based on status
-const createCustomIcon = (status: 'active' | 'maintenance' | 'inactive') => {
-  const colors = {
-    active: '#22c55e',
-    maintenance: '#f59e0b',
-    inactive: '#6b7280',
-  };
-
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `
-      <div style="
-        background-color: ${colors[status]};
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      "></div>
-    `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
-  });
-};
-
 const MapPage: React.FC = () => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
   const statusColors = {
@@ -56,8 +23,87 @@ const MapPage: React.FC = () => {
     inactive: 'Tidak Aktif',
   };
 
+  const markerColors = {
+    active: '#22c55e',
+    maintenance: '#f59e0b',
+    inactive: '#6b7280',
+  };
+
   // Center of Lampung province
   const lampungCenter: [number, number] = [-5.0, 105.0];
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    // Initialize map
+    const map = L.map(mapRef.current).setView(lampungCenter, 8);
+    mapInstanceRef.current = map;
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Add markers for each irrigation area
+    mockAreas.forEach((area) => {
+      const color = markerColors[area.status];
+      
+      const customIcon = L.divIcon({
+        className: 'custom-marker',
+        html: `
+          <div style="
+            background-color: ${color};
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          "></div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -12],
+      });
+
+      const marker = L.marker([area.lat, area.lng], { icon: customIcon }).addTo(map);
+      
+      const statusBgColor = area.status === 'active' ? '#22c55e' : area.status === 'maintenance' ? '#f59e0b' : '#6b7280';
+      
+      marker.bindPopup(`
+        <div style="padding: 4px; min-width: 180px;">
+          <h3 style="font-weight: 600; font-size: 14px; margin: 0 0 4px 0;">${area.name}</h3>
+          <p style="font-size: 12px; color: #666; margin: 0 0 8px 0;">${area.location}</p>
+          <div style="font-size: 12px; line-height: 1.6;">
+            <p style="margin: 0;">Luas: ${area.totalArea.toLocaleString()} Ha</p>
+            <p style="margin: 0;">Saluran: ${area.canalsCount}</p>
+            <p style="margin: 0;">Pintu Air: ${area.gatesCount}</p>
+            <p style="margin: 4px 0 0 0; display: flex; align-items: center; gap: 4px;">
+              Status: 
+              <span style="
+                background-color: ${statusBgColor};
+                color: white;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+              ">${statusLabels[area.status]}</span>
+            </p>
+          </div>
+        </div>
+      `);
+
+      marker.on('click', () => {
+        setSelectedArea(area.id);
+      });
+    });
+
+    // Cleanup
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -73,52 +119,11 @@ const MapPage: React.FC = () => {
         <div className="lg:col-span-3">
           <Card className="shadow-card overflow-hidden">
             <CardContent className="p-0">
-              <div className="h-[500px]">
-                <MapContainer
-                  center={lampungCenter}
-                  zoom={8}
-                  style={{ height: '100%', width: '100%' }}
-                  scrollWheelZoom={true}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  {mockAreas.map((area) => (
-                    <Marker
-                      key={area.id}
-                      position={[area.lat, area.lng]}
-                      icon={createCustomIcon(area.status)}
-                      eventHandlers={{
-                        click: () => setSelectedArea(area.id),
-                      }}
-                    >
-                      <Popup>
-                        <div className="p-1">
-                          <h3 className="font-semibold text-sm">{area.name}</h3>
-                          <p className="text-xs text-gray-600">{area.location}</p>
-                          <div className="mt-2 space-y-1 text-xs">
-                            <p>Luas: {area.totalArea.toLocaleString()} Ha</p>
-                            <p>Saluran: {area.canalsCount}</p>
-                            <p>Pintu Air: {area.gatesCount}</p>
-                            <p className="flex items-center gap-1">
-                              Status: 
-                              <span className={cn(
-                                'px-1.5 py-0.5 rounded text-white text-xs',
-                                area.status === 'active' && 'bg-green-500',
-                                area.status === 'maintenance' && 'bg-amber-500',
-                                area.status === 'inactive' && 'bg-gray-500'
-                              )}>
-                                {statusLabels[area.status]}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-              </div>
+              <div 
+                ref={mapRef} 
+                className="h-[500px] w-full"
+                style={{ zIndex: 1 }}
+              />
             </CardContent>
           </Card>
         </div>
