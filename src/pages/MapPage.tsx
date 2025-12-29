@@ -1,21 +1,63 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Map as MapIcon, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { mockAreas } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
+// Fix for default marker icons in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Custom marker icons based on status
+const createCustomIcon = (status: 'active' | 'maintenance' | 'inactive') => {
+  const colors = {
+    active: '#22c55e',
+    maintenance: '#f59e0b',
+    inactive: '#6b7280',
+  };
+
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div style="
+        background-color: ${colors[status]};
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      "></div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
+
 const MapPage: React.FC = () => {
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [showMap, setShowMap] = useState(false);
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
   const statusColors = {
     active: 'bg-success',
     maintenance: 'bg-warning',
     inactive: 'bg-muted-foreground',
   };
+
+  const statusLabels = {
+    active: 'Aktif',
+    maintenance: 'Pemeliharaan',
+    inactive: 'Tidak Aktif',
+  };
+
+  // Center of Lampung province
+  const lampungCenter: [number, number] = [-5.0, 105.0];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -27,68 +69,56 @@ const MapPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Map Placeholder / Token Input */}
+        {/* Map */}
         <div className="lg:col-span-3">
           <Card className="shadow-card overflow-hidden">
             <CardContent className="p-0">
-              {!showMap ? (
-                <div className="h-[500px] bg-gradient-to-br from-primary/5 to-accent/5 flex flex-col items-center justify-center p-8">
-                  <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-                    <MapIcon className="w-10 h-10 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-heading font-semibold text-foreground mb-2">
-                    Integrasi Peta
-                  </h3>
-                  <p className="text-muted-foreground text-center max-w-md mb-6">
-                    Masukkan Mapbox Public Token untuk menampilkan peta interaktif dengan lokasi daerah irigasi.
-                  </p>
-                  <div className="w-full max-w-md space-y-4">
-                    <div className="input-group">
-                      <Label htmlFor="mapboxToken">Mapbox Public Token</Label>
-                      <Input
-                        id="mapboxToken"
-                        value={mapboxToken}
-                        onChange={(e) => setMapboxToken(e.target.value)}
-                        placeholder="pk.eyJ1Ijo..."
-                      />
-                    </div>
-                    <Button 
-                      onClick={() => setShowMap(true)} 
-                      className="w-full"
-                      disabled={!mapboxToken}
+              <div className="h-[500px]">
+                <MapContainer
+                  center={lampungCenter}
+                  zoom={8}
+                  style={{ height: '100%', width: '100%' }}
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  {mockAreas.map((area) => (
+                    <Marker
+                      key={area.id}
+                      position={[area.lat, area.lng]}
+                      icon={createCustomIcon(area.status)}
+                      eventHandlers={{
+                        click: () => setSelectedArea(area.id),
+                      }}
                     >
-                      Tampilkan Peta
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Dapatkan token gratis di{' '}
-                      <a 
-                        href="https://mapbox.com" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        mapbox.com
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-[500px] bg-muted flex items-center justify-center">
-                  <div className="text-center">
-                    <MapIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      Peta akan ditampilkan di sini dengan token yang valid
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-4"
-                      onClick={() => setShowMap(false)}
-                    >
-                      Ubah Token
-                    </Button>
-                  </div>
-                </div>
-              )}
+                      <Popup>
+                        <div className="p-1">
+                          <h3 className="font-semibold text-sm">{area.name}</h3>
+                          <p className="text-xs text-gray-600">{area.location}</p>
+                          <div className="mt-2 space-y-1 text-xs">
+                            <p>Luas: {area.totalArea.toLocaleString()} Ha</p>
+                            <p>Saluran: {area.canalsCount}</p>
+                            <p>Pintu Air: {area.gatesCount}</p>
+                            <p className="flex items-center gap-1">
+                              Status: 
+                              <span className={cn(
+                                'px-1.5 py-0.5 rounded text-white text-xs',
+                                area.status === 'active' && 'bg-green-500',
+                                area.status === 'maintenance' && 'bg-amber-500',
+                                area.status === 'inactive' && 'bg-gray-500'
+                              )}>
+                                {statusLabels[area.status]}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -123,7 +153,11 @@ const MapPage: React.FC = () => {
               {mockAreas.map((area) => (
                 <div
                   key={area.id}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  className={cn(
+                    'flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors',
+                    selectedArea === area.id && 'bg-primary/10 ring-1 ring-primary/30'
+                  )}
+                  onClick={() => setSelectedArea(area.id)}
                 >
                   <span className={cn('w-2.5 h-2.5 rounded-full', statusColors[area.status])} />
                   <div className="flex-1 min-w-0">

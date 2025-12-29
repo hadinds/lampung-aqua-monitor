@@ -19,6 +19,8 @@ export const mockAreas: IrrigationArea[] = [
     canalsCount: 12,
     gatesCount: 45,
     createdAt: '2020-01-15',
+    lat: -5.1591,
+    lng: 105.4068,
   },
   {
     id: '2',
@@ -29,6 +31,8 @@ export const mockAreas: IrrigationArea[] = [
     canalsCount: 10,
     gatesCount: 38,
     createdAt: '2019-06-20',
+    lat: -4.8357,
+    lng: 105.2833,
   },
   {
     id: '3',
@@ -39,6 +43,8 @@ export const mockAreas: IrrigationArea[] = [
     canalsCount: 8,
     gatesCount: 28,
     createdAt: '2018-03-10',
+    lat: -5.5143,
+    lng: 105.2617,
   },
   {
     id: '4',
@@ -49,6 +55,8 @@ export const mockAreas: IrrigationArea[] = [
     canalsCount: 6,
     gatesCount: 22,
     createdAt: '2021-08-05',
+    lat: -4.9412,
+    lng: 105.1205,
   },
   {
     id: '5',
@@ -59,6 +67,8 @@ export const mockAreas: IrrigationArea[] = [
     canalsCount: 5,
     gatesCount: 15,
     createdAt: '2017-11-22',
+    lat: -4.5691,
+    lng: 104.6893,
   },
 ];
 

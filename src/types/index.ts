@@ -17,6 +17,8 @@ export interface IrrigationArea {
   canalsCount: number;
   gatesCount: number;
   createdAt: string;
+  lat: number;
+  lng: number;
 }
 
 export interface Canal {
