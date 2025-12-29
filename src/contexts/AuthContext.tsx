@@ -86,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({
         id: foundUser.id,
         name: foundUser.name,
+        username: foundUser.username,
         email: `${foundUser.username}@psda.lampung.go.id`,
         role: foundUser.role,
       });
@@ -135,10 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUsers(updatedUsers);
 
-    // Update current user email display
+    // Update current user info
     if (newUsername) {
       setUser(prev => prev ? {
         ...prev,
+        username: newUsername,
         email: `${newUsername}@psda.lampung.go.id`,
       } : null);
     }
