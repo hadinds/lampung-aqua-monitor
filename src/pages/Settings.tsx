@@ -6,26 +6,45 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   User,
   Bell,
   Shield,
   Database,
   Save,
   Key,
+  Users,
+  Pencil,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, StoredUser } from '@/contexts/AuthContext';
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { user, updateCredentials } = useAuth();
+  const { user, users, updateUserCredentials } = useAuth();
 
-  // Credential change state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // Edit user dialog state
+  const [editingUser, setEditingUser] = useState<StoredUser | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const isAdmin = user?.role === 'admin';
 
   const handleSave = () => {
     toast({
@@ -34,29 +53,25 @@ const Settings: React.FC = () => {
     });
   };
 
+  const openEditDialog = (targetUser: StoredUser) => {
+    setEditingUser(targetUser);
+    setEditUsername(targetUser.username);
+    setEditPassword('');
+  };
+
+  const closeEditDialog = () => {
+    setEditingUser(null);
+    setEditUsername('');
+    setEditPassword('');
+  };
+
   const handleCredentialUpdate = async () => {
-    if (!currentPassword) {
-      toast({
-        title: 'Error',
-        description: 'Masukkan password saat ini',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!editingUser) return;
 
-    if (newPassword && newPassword !== confirmPassword) {
+    if (!editUsername) {
       toast({
         title: 'Error',
-        description: 'Password baru tidak cocok',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!newUsername && !newPassword) {
-      toast({
-        title: 'Error',
-        description: 'Masukkan username baru atau password baru',
+        description: 'Username tidak boleh kosong',
         variant: 'destructive',
       });
       return;
@@ -65,26 +80,22 @@ const Settings: React.FC = () => {
     setIsUpdating(true);
     
     try {
-      const success = await updateCredentials(
-        currentPassword,
-        newUsername || undefined,
-        newPassword || undefined
+      const result = await updateUserCredentials(
+        editingUser.id,
+        editUsername !== editingUser.username ? editUsername : undefined,
+        editPassword || undefined
       );
 
-      if (success) {
+      if (result.success) {
         toast({
           title: 'Berhasil',
-          description: 'Kredensial berhasil diperbarui',
+          description: 'Kredensial user berhasil diperbarui',
         });
-        // Clear form
-        setCurrentPassword('');
-        setNewUsername('');
-        setNewPassword('');
-        setConfirmPassword('');
+        closeEditDialog();
       } else {
         toast({
           title: 'Gagal',
-          description: 'Password saat ini salah atau username sudah digunakan',
+          description: result.error || 'Gagal memperbarui kredensial',
           variant: 'destructive',
         });
       }
@@ -99,7 +110,7 @@ const Settings: React.FC = () => {
     }
   };
 
-  const roleLabels = {
+  const roleLabels: Record<string, string> = {
     admin: 'Administrator',
     field_officer: 'Petugas Lapangan',
     manager: 'Kepala Dinas',
@@ -134,7 +145,7 @@ const Settings: React.FC = () => {
               <Input value={user?.name || ''} disabled className="bg-muted" />
             </div>
             <div className="input-group">
-              <Label>Username Saat Ini</Label>
+              <Label>Username</Label>
               <Input value={user?.username || ''} disabled className="bg-muted" />
             </div>
             <div className="input-group">
@@ -145,78 +156,68 @@ const Settings: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Credential Change */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-warning/10">
-              <Key className="w-5 h-5 text-warning" />
+      {/* User Management - Admin Only */}
+      {isAdmin && (
+        <Card className="shadow-card">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-warning/10">
+                <Users className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-heading">Kelola Pengguna</CardTitle>
+                <CardDescription>Ubah username dan password pengguna (Hanya Admin)</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base font-heading">Ubah Kredensial</CardTitle>
-              <CardDescription>Ubah username atau password Anda</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="input-group">
-            <Label htmlFor="currentPassword">Password Saat Ini *</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              placeholder="Masukkan password saat ini"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-          </div>
-          
-          <Separator />
-          
-          <div className="input-group">
-            <Label htmlFor="newUsername">Username Baru (opsional)</Label>
-            <Input
-              id="newUsername"
-              type="text"
-              placeholder="Kosongkan jika tidak ingin mengubah"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-            />
-          </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.name}</TableCell>
+                    <TableCell>{u.username}</TableCell>
+                    <TableCell>{roleLabels[u.role]}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(u)}
+                        className="gap-1"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="input-group">
-              <Label htmlFor="newPassword">Password Baru (opsional)</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                placeholder="Kosongkan jika tidak ingin mengubah"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
+      {/* Non-admin info */}
+      {!isAdmin && (
+        <Card className="shadow-card bg-muted/30">
+          <CardContent className="pt-6">
+            <div className="flex gap-3">
+              <Key className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                Untuk mengubah username atau password Anda, silakan hubungi Administrator.
+              </p>
             </div>
-            <div className="input-group">
-              <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Ulangi password baru"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={!newPassword}
-              />
-            </div>
-          </div>
-
-          <Button 
-            onClick={handleCredentialUpdate} 
-            disabled={isUpdating}
-            className="gap-2"
-          >
-            <Key className="w-4 h-4" />
-            {isUpdating ? 'Memproses...' : 'Perbarui Kredensial'}
-          </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notification Settings */}
       <Card className="shadow-card">
@@ -343,6 +344,47 @@ const Settings: React.FC = () => {
           Simpan Pengaturan
         </Button>
       </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && closeEditDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Kredensial - {editingUser?.name}</DialogTitle>
+            <DialogDescription>
+              Ubah username dan/atau password untuk user ini
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="input-group">
+              <Label htmlFor="editUsername">Username</Label>
+              <Input
+                id="editUsername"
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value)}
+                placeholder="Masukkan username"
+              />
+            </div>
+            <div className="input-group">
+              <Label htmlFor="editPassword">Password Baru</Label>
+              <Input
+                id="editPassword"
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="Kosongkan jika tidak ingin mengubah"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEditDialog}>
+              Batal
+            </Button>
+            <Button onClick={handleCredentialUpdate} disabled={isUpdating}>
+              {isUpdating ? 'Menyimpan...' : 'Simpan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
