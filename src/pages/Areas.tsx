@@ -66,6 +66,8 @@ const Areas: React.FC = () => {
       canalsCount: editingArea?.canalsCount || 0,
       gatesCount: editingArea?.gatesCount || 0,
       createdAt: editingArea?.createdAt || new Date().toISOString().split('T')[0],
+      lat: editingArea?.lat || -5.0,
+      lng: editingArea?.lng || 105.0,
     };
 
     if (editingArea) {
