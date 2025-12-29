@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
+
+// Context for authentication state management
 
 interface StoredUser {
   id: string;
@@ -63,7 +65,7 @@ function saveUsers(users: StoredUser[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<StoredUser[]>(getStoredUsers);
 
