@@ -128,10 +128,14 @@ const Settings: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="input-group">
               <Label>Nama</Label>
               <Input value={user?.name || ''} disabled className="bg-muted" />
+            </div>
+            <div className="input-group">
+              <Label>Username Saat Ini</Label>
+              <Input value={user?.username || ''} disabled className="bg-muted" />
             </div>
             <div className="input-group">
               <Label>Role</Label>
