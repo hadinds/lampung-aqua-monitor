@@ -61,17 +61,24 @@ const AppRoutes = () => {
   );
 };
 
+// Wrap AppRoutes with all providers in the correct order
+const AppWithProviders = () => {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <AppWithProviders />
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
