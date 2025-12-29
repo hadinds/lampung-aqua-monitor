@@ -3,7 +3,7 @@ import { User, UserRole } from '@/types';
 
 // Context for authentication state management
 
-interface StoredUser {
+export interface StoredUser {
   id: string;
   name: string;
   username: string;
@@ -14,9 +14,10 @@ interface StoredUser {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  users: StoredUser[];
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  updateCredentials: (currentPassword: string, newUsername?: string, newPassword?: string) => Promise<boolean>;
+  updateUserCredentials: (userId: string, newUsername?: string, newPassword?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -99,32 +100,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateCredentials = useCallback(async (
-    currentPassword: string,
+  const updateUserCredentials = useCallback(async (
+    userId: string,
     newUsername?: string,
     newPassword?: string
-  ): Promise<boolean> => {
-    if (!user) return false;
+  ): Promise<{ success: boolean; error?: string }> => {
+    // Only admin can update credentials
+    if (!user || user.role !== 'admin') {
+      return { success: false, error: 'Hanya admin yang dapat mengubah kredensial' };
+    }
 
-    // Find current user and verify password
-    const currentUserData = users.find(u => u.id === user.id);
-    if (!currentUserData || currentUserData.password !== currentPassword) {
-      return false;
+    // Find target user
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) {
+      return { success: false, error: 'User tidak ditemukan' };
     }
 
     // Check if new username already exists (if changing username)
-    if (newUsername && newUsername !== currentUserData.username) {
+    if (newUsername && newUsername !== targetUser.username) {
       const usernameExists = users.some(
-        u => u.username === newUsername && u.id !== user.id
+        u => u.username === newUsername && u.id !== userId
       );
       if (usernameExists) {
-        return false;
+        return { success: false, error: 'Username sudah digunakan' };
       }
     }
 
     // Update credentials
     const updatedUsers = users.map(u => {
-      if (u.id === user.id) {
+      if (u.id === userId) {
         return {
           ...u,
           username: newUsername || u.username,
@@ -136,8 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUsers(updatedUsers);
 
-    // Update current user info
-    if (newUsername) {
+    // If admin is updating their own credentials, update the session
+    if (userId === user.id && newUsername) {
       setUser(prev => prev ? {
         ...prev,
         username: newUsername,
@@ -145,11 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } : null);
     }
 
-    return true;
+    return { success: true };
   }, [user, users]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, updateCredentials }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, users, login, logout, updateUserCredentials }}>
       {children}
     </AuthContext.Provider>
   );
