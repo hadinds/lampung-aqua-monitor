@@ -28,12 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Activity, Droplets, Gauge } from 'lucide-react';
-import { mockMonitoringData, mockGates } from '@/data/mockData';
-import { MonitoringData } from '@/types';
+import { Plus, Search, Activity, Droplets, Gauge, Loader2 } from 'lucide-react';
+import { useMonitoringData, useGates } from '@/hooks/useIrrigationData';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const conditionStyles = {
   normal: { label: 'Normal', class: 'status-badge-success' },
@@ -42,40 +40,46 @@ const conditionStyles = {
 };
 
 const Monitoring: React.FC = () => {
-  const [data, setData] = useState<MonitoringData[]>(mockMonitoringData);
+  const { data, loading, createMonitoringData } = useMonitoringData();
+  const { gates } = useGates();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { toast } = useToast();
-  const { user } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredData = data.filter(
     (item) =>
-      item.gateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.recordedBy.toLowerCase().includes(searchQuery.toLowerCase())
+      (item.gate_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSaving(true);
     const formData = new FormData(e.currentTarget);
-    const gateId = formData.get('gateId') as string;
-    const gate = mockGates.find((g) => g.id === gateId);
 
-    const newData: MonitoringData = {
-      id: String(Date.now()),
-      gateId: gateId,
-      gateName: gate?.name || '',
-      waterLevel: Number(formData.get('waterLevel')),
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const monitoringData = {
+      gate_id: formData.get('gateId') as string,
+      water_level: Number(formData.get('waterLevel')),
       discharge: Number(formData.get('discharge')),
-      condition: formData.get('condition') as MonitoringData['condition'],
-      recordedAt: new Date().toLocaleString('id-ID'),
-      recordedBy: user?.name || 'Unknown',
-      notes: formData.get('notes') as string,
+      condition: formData.get('condition') as string,
+      recorded_by: user?.id || null,
+      notes: formData.get('notes') as string || null,
     };
 
-    setData([newData, ...data]);
-    toast({ title: 'Berhasil', description: 'Data monitoring berhasil disimpan' });
+    await createMonitoringData(monitoringData);
     setIsDialogOpen(false);
+    setIsSaving(false);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -110,7 +114,7 @@ const Monitoring: React.FC = () => {
                       <SelectValue placeholder="Pilih pintu air" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockGates.map((gate) => (
+                      {gates.map((gate) => (
                         <SelectItem key={gate.id} value={gate.id}>
                           {gate.name}
                         </SelectItem>
@@ -177,7 +181,10 @@ const Monitoring: React.FC = () => {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Batal
                 </Button>
-                <Button type="submit">Simpan</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Simpan
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -193,10 +200,8 @@ const Monitoring: React.FC = () => {
                 <Activity className="w-6 h-6 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Data Hari Ini</p>
-                <p className="text-2xl font-heading font-bold">
-                  {data.filter((d) => d.recordedAt.includes(new Date().toLocaleDateString('id-ID'))).length}
-                </p>
+                <p className="text-sm text-muted-foreground">Total Data</p>
+                <p className="text-2xl font-heading font-bold">{data.length}</p>
               </div>
             </div>
           </CardContent>
@@ -249,40 +254,46 @@ const Monitoring: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pintu Air</TableHead>
-                  <TableHead className="text-right">TMA (m)</TableHead>
-                  <TableHead className="text-right">Debit (m³/s)</TableHead>
-                  <TableHead>Kondisi</TableHead>
-                  <TableHead>Waktu</TableHead>
-                  <TableHead>Petugas</TableHead>
-                  <TableHead>Catatan</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredData.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.gateName}</TableCell>
-                    <TableCell className="text-right">{item.waterLevel.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{item.discharge.toFixed(1)}</TableCell>
-                    <TableCell>
-                      <span className={cn('status-badge', conditionStyles[item.condition].class)}>
-                        {conditionStyles[item.condition].label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{item.recordedAt}</TableCell>
-                    <TableCell>{item.recordedBy}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                      {item.notes || '-'}
-                    </TableCell>
+          {filteredData.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'Tidak ada data yang cocok' : 'Belum ada data monitoring'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pintu Air</TableHead>
+                    <TableHead className="text-right">TMA (m)</TableHead>
+                    <TableHead className="text-right">Debit (m³/s)</TableHead>
+                    <TableHead>Kondisi</TableHead>
+                    <TableHead>Waktu</TableHead>
+                    <TableHead>Catatan</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredData.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.gate_name}</TableCell>
+                      <TableCell className="text-right">{Number(item.water_level).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{Number(item.discharge).toFixed(1)}</TableCell>
+                      <TableCell>
+                        <span className={cn('status-badge', conditionStyles[item.condition as keyof typeof conditionStyles]?.class || '')}>
+                          {conditionStyles[item.condition as keyof typeof conditionStyles]?.label || item.condition}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(item.recorded_at).toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                        {item.notes || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

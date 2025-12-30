@@ -14,16 +14,267 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          location: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          location: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          location?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      canals: {
+        Row: {
+          area_id: string
+          capacity: number
+          created_at: string
+          id: string
+          last_inspection: string | null
+          length: number
+          name: string
+          status: string
+          updated_at: string
+          width: number
+        }
+        Insert: {
+          area_id: string
+          capacity?: number
+          created_at?: string
+          id?: string
+          last_inspection?: string | null
+          length?: number
+          name: string
+          status?: string
+          updated_at?: string
+          width?: number
+        }
+        Update: {
+          area_id?: string
+          capacity?: number
+          created_at?: string
+          id?: string
+          last_inspection?: string | null
+          length?: number
+          name?: string
+          status?: string
+          updated_at?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canals_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "irrigation_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gates: {
+        Row: {
+          canal_id: string
+          condition: string
+          created_at: string
+          id: string
+          last_maintenance: string | null
+          name: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          canal_id: string
+          condition?: string
+          created_at?: string
+          id?: string
+          last_maintenance?: string | null
+          name: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          canal_id?: string
+          condition?: string
+          created_at?: string
+          id?: string
+          last_maintenance?: string | null
+          name?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gates_canal_id_fkey"
+            columns: ["canal_id"]
+            isOneToOne: false
+            referencedRelation: "canals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      irrigation_areas: {
+        Row: {
+          created_at: string
+          id: string
+          lat: number
+          lng: number
+          location: string
+          name: string
+          status: string
+          total_area: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          location: string
+          name: string
+          status?: string
+          total_area?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          location?: string
+          name?: string
+          status?: string
+          total_area?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      monitoring_data: {
+        Row: {
+          condition: string
+          discharge: number
+          gate_id: string
+          id: string
+          notes: string | null
+          recorded_at: string
+          recorded_by: string | null
+          water_level: number
+        }
+        Insert: {
+          condition?: string
+          discharge?: number
+          gate_id: string
+          id?: string
+          notes?: string | null
+          recorded_at?: string
+          recorded_by?: string | null
+          water_level?: number
+        }
+        Update: {
+          condition?: string
+          discharge?: number
+          gate_id?: string
+          id?: string
+          notes?: string | null
+          recorded_at?: string
+          recorded_by?: string | null
+          water_level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoring_data_gate_id_fkey"
+            columns: ["gate_id"]
+            isOneToOne: false
+            referencedRelation: "gates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "petugas" | "kadis"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +401,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "petugas", "kadis"],
+    },
   },
 } as const

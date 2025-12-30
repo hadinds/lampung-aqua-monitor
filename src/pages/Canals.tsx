@@ -27,11 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Waves } from 'lucide-react';
-import { mockCanals, mockAreas } from '@/data/mockData';
-import { Canal } from '@/types';
+import { Plus, Search, Edit, Trash2, Waves, Loader2 } from 'lucide-react';
+import { useCanals, useIrrigationAreas, DbCanal } from '@/hooks/useIrrigationData';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 const statusStyles = {
   good: { label: 'Baik', class: 'status-badge-success' },
@@ -40,52 +38,56 @@ const statusStyles = {
 };
 
 const Canals: React.FC = () => {
-  const [canals, setCanals] = useState<Canal[]>(mockCanals);
+  const { canals, loading, createCanal, updateCanal, deleteCanal } = useCanals();
+  const { areas } = useIrrigationAreas();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCanal, setEditingCanal] = useState<Canal | null>(null);
-  const { toast } = useToast();
+  const [editingCanal, setEditingCanal] = useState<(DbCanal & { area_name?: string }) | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredCanals = canals.filter(
     (canal) =>
       canal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      canal.areaName.toLowerCase().includes(searchQuery.toLowerCase())
+      (canal.area_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSaving(true);
     const formData = new FormData(e.currentTarget);
-    const areaId = formData.get('areaId') as string;
-    const area = mockAreas.find((a) => a.id === areaId);
 
-    const newCanal: Canal = {
-      id: editingCanal?.id || String(Date.now()),
+    const canalData = {
       name: formData.get('name') as string,
-      areaId: areaId,
-      areaName: area?.name || '',
+      area_id: formData.get('areaId') as string,
       length: Number(formData.get('length')),
       width: Number(formData.get('width')),
       capacity: Number(formData.get('capacity')),
-      status: formData.get('status') as Canal['status'],
-      lastInspection: editingCanal?.lastInspection || new Date().toISOString().split('T')[0],
+      status: formData.get('status') as string,
+      last_inspection: editingCanal?.last_inspection || null,
     };
 
     if (editingCanal) {
-      setCanals(canals.map((c) => (c.id === editingCanal.id ? newCanal : c)));
-      toast({ title: 'Berhasil', description: 'Data saluran berhasil diperbarui' });
+      await updateCanal(editingCanal.id, canalData);
     } else {
-      setCanals([...canals, newCanal]);
-      toast({ title: 'Berhasil', description: 'Saluran baru berhasil ditambahkan' });
+      await createCanal(canalData);
     }
 
     setIsDialogOpen(false);
     setEditingCanal(null);
+    setIsSaving(false);
   };
 
-  const handleDelete = (id: string) => {
-    setCanals(canals.filter((c) => c.id !== id));
-    toast({ title: 'Berhasil', description: 'Data saluran berhasil dihapus' });
+  const handleDelete = async (id: string) => {
+    await deleteCanal(id);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -127,12 +129,12 @@ const Canals: React.FC = () => {
                 </div>
                 <div className="input-group">
                   <Label htmlFor="areaId">Daerah Irigasi</Label>
-                  <Select name="areaId" defaultValue={editingCanal?.areaId}>
+                  <Select name="areaId" defaultValue={editingCanal?.area_id}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih daerah irigasi" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockAreas.map((area) => (
+                      {areas.map((area) => (
                         <SelectItem key={area.id} value={area.id}>
                           {area.name}
                         </SelectItem>
@@ -194,7 +196,10 @@ const Canals: React.FC = () => {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Batal
                 </Button>
-                <Button type="submit">Simpan</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Simpan
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -217,63 +222,69 @@ const Canals: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Daerah Irigasi</TableHead>
-                  <TableHead className="text-right">Panjang (m)</TableHead>
-                  <TableHead className="text-right">Lebar (m)</TableHead>
-                  <TableHead className="text-right">Kapasitas</TableHead>
-                  <TableHead>Kondisi</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCanals.map((canal) => (
-                  <TableRow key={canal.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Waves className="w-4 h-4 text-accent" />
-                        <span className="font-medium">{canal.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{canal.areaName}</TableCell>
-                    <TableCell className="text-right">{canal.length.toLocaleString('id-ID')}</TableCell>
-                    <TableCell className="text-right">{canal.width}</TableCell>
-                    <TableCell className="text-right">{canal.capacity.toLocaleString('id-ID')}</TableCell>
-                    <TableCell>
-                      <span className={cn('status-badge', statusStyles[canal.status].class)}>
-                        {statusStyles[canal.status].label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingCanal(canal);
-                            setIsDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(canal.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+          {filteredCanals.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'Tidak ada data yang cocok' : 'Belum ada data saluran'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Daerah Irigasi</TableHead>
+                    <TableHead className="text-right">Panjang (m)</TableHead>
+                    <TableHead className="text-right">Lebar (m)</TableHead>
+                    <TableHead className="text-right">Kapasitas</TableHead>
+                    <TableHead>Kondisi</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredCanals.map((canal) => (
+                    <TableRow key={canal.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Waves className="w-4 h-4 text-accent" />
+                          <span className="font-medium">{canal.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{canal.area_name}</TableCell>
+                      <TableCell className="text-right">{canal.length.toLocaleString('id-ID')}</TableCell>
+                      <TableCell className="text-right">{canal.width}</TableCell>
+                      <TableCell className="text-right">{canal.capacity.toLocaleString('id-ID')}</TableCell>
+                      <TableCell>
+                        <span className={cn('status-badge', statusStyles[canal.status as keyof typeof statusStyles]?.class || '')}>
+                          {statusStyles[canal.status as keyof typeof statusStyles]?.label || canal.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingCanal(canal);
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(canal.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
