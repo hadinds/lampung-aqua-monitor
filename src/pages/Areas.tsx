@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -28,11 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, MapPin } from 'lucide-react';
-import { mockAreas } from '@/data/mockData';
-import { IrrigationArea } from '@/types';
+import { Plus, Search, Edit, Trash2, MapPin, Loader2 } from 'lucide-react';
+import { useIrrigationAreas, DbIrrigationArea } from '@/hooks/useIrrigationData';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 const statusStyles = {
   active: { label: 'Aktif', class: 'status-badge-success' },
@@ -41,11 +38,11 @@ const statusStyles = {
 };
 
 const Areas: React.FC = () => {
-  const [areas, setAreas] = useState<IrrigationArea[]>(mockAreas);
+  const { areas, loading, createArea, updateArea, deleteArea } = useIrrigationAreas();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingArea, setEditingArea] = useState<IrrigationArea | null>(null);
-  const { toast } = useToast();
+  const [editingArea, setEditingArea] = useState<DbIrrigationArea | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredAreas = areas.filter(
     (area) =>
@@ -53,39 +50,42 @@ const Areas: React.FC = () => {
       area.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSaving(true);
     const formData = new FormData(e.currentTarget);
     
-    const newArea: IrrigationArea = {
-      id: editingArea?.id || String(Date.now()),
+    const areaData = {
       name: formData.get('name') as string,
       location: formData.get('location') as string,
-      totalArea: Number(formData.get('totalArea')),
-      status: formData.get('status') as IrrigationArea['status'],
-      canalsCount: editingArea?.canalsCount || 0,
-      gatesCount: editingArea?.gatesCount || 0,
-      createdAt: editingArea?.createdAt || new Date().toISOString().split('T')[0],
+      total_area: Number(formData.get('totalArea')),
+      status: formData.get('status') as string,
       lat: editingArea?.lat || -5.0,
       lng: editingArea?.lng || 105.0,
     };
 
     if (editingArea) {
-      setAreas(areas.map((a) => (a.id === editingArea.id ? newArea : a)));
-      toast({ title: 'Berhasil', description: 'Data daerah irigasi berhasil diperbarui' });
+      await updateArea(editingArea.id, areaData);
     } else {
-      setAreas([...areas, newArea]);
-      toast({ title: 'Berhasil', description: 'Daerah irigasi baru berhasil ditambahkan' });
+      await createArea(areaData);
     }
 
     setIsDialogOpen(false);
     setEditingArea(null);
+    setIsSaving(false);
   };
 
-  const handleDelete = (id: string) => {
-    setAreas(areas.filter((a) => a.id !== id));
-    toast({ title: 'Berhasil', description: 'Data daerah irigasi berhasil dihapus' });
+  const handleDelete = async (id: string) => {
+    await deleteArea(id);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -141,7 +141,7 @@ const Areas: React.FC = () => {
                     id="totalArea"
                     name="totalArea"
                     type="number"
-                    defaultValue={editingArea?.totalArea}
+                    defaultValue={editingArea?.total_area}
                     placeholder="Contoh: 15000"
                     required
                   />
@@ -164,7 +164,10 @@ const Areas: React.FC = () => {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Batal
                 </Button>
-                <Button type="submit">Simpan</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Simpan
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -187,63 +190,65 @@ const Areas: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Lokasi</TableHead>
-                  <TableHead className="text-right">Luas (Ha)</TableHead>
-                  <TableHead className="text-center">Saluran</TableHead>
-                  <TableHead className="text-center">Pintu</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAreas.map((area) => (
-                  <TableRow key={area.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{area.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{area.location}</TableCell>
-                    <TableCell className="text-right">{area.totalArea.toLocaleString('id-ID')}</TableCell>
-                    <TableCell className="text-center">{area.canalsCount}</TableCell>
-                    <TableCell className="text-center">{area.gatesCount}</TableCell>
-                    <TableCell>
-                      <span className={cn('status-badge', statusStyles[area.status].class)}>
-                        {statusStyles[area.status].label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingArea(area);
-                            setIsDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(area.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+          {filteredAreas.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'Tidak ada data yang cocok' : 'Belum ada data daerah irigasi'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Lokasi</TableHead>
+                    <TableHead className="text-right">Luas (Ha)</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredAreas.map((area) => (
+                    <TableRow key={area.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-primary" />
+                          <span className="font-medium">{area.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{area.location}</TableCell>
+                      <TableCell className="text-right">{area.total_area.toLocaleString('id-ID')}</TableCell>
+                      <TableCell>
+                        <span className={cn('status-badge', statusStyles[area.status as keyof typeof statusStyles]?.class || '')}>
+                          {statusStyles[area.status as keyof typeof statusStyles]?.label || area.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingArea(area);
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(area.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

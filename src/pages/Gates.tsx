@@ -27,11 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, DoorOpen } from 'lucide-react';
-import { mockGates, mockCanals } from '@/data/mockData';
-import { Gate } from '@/types';
+import { Plus, Search, Edit, Trash2, DoorOpen, Loader2 } from 'lucide-react';
+import { useGates, useCanals, DbGate } from '@/hooks/useIrrigationData';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 const statusStyles = {
   open: { label: 'Terbuka', class: 'bg-success/15 text-success' },
@@ -52,51 +50,55 @@ const typeLabels = {
 };
 
 const Gates: React.FC = () => {
-  const [gates, setGates] = useState<Gate[]>(mockGates);
+  const { gates, loading, createGate, updateGate, deleteGate } = useGates();
+  const { canals } = useCanals();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingGate, setEditingGate] = useState<Gate | null>(null);
-  const { toast } = useToast();
+  const [editingGate, setEditingGate] = useState<(DbGate & { canal_name?: string }) | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredGates = gates.filter(
     (gate) =>
       gate.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      gate.canalName.toLowerCase().includes(searchQuery.toLowerCase())
+      (gate.canal_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSaving(true);
     const formData = new FormData(e.currentTarget);
-    const canalId = formData.get('canalId') as string;
-    const canal = mockCanals.find((c) => c.id === canalId);
 
-    const newGate: Gate = {
-      id: editingGate?.id || String(Date.now()),
+    const gateData = {
       name: formData.get('name') as string,
-      canalId: canalId,
-      canalName: canal?.name || '',
-      type: formData.get('type') as Gate['type'],
-      status: formData.get('status') as Gate['status'],
-      condition: formData.get('condition') as Gate['condition'],
-      lastMaintenance: editingGate?.lastMaintenance || new Date().toISOString().split('T')[0],
+      canal_id: formData.get('canalId') as string,
+      type: formData.get('type') as string,
+      status: formData.get('status') as string,
+      condition: formData.get('condition') as string,
+      last_maintenance: editingGate?.last_maintenance || null,
     };
 
     if (editingGate) {
-      setGates(gates.map((g) => (g.id === editingGate.id ? newGate : g)));
-      toast({ title: 'Berhasil', description: 'Data pintu air berhasil diperbarui' });
+      await updateGate(editingGate.id, gateData);
     } else {
-      setGates([...gates, newGate]);
-      toast({ title: 'Berhasil', description: 'Pintu air baru berhasil ditambahkan' });
+      await createGate(gateData);
     }
 
     setIsDialogOpen(false);
     setEditingGate(null);
+    setIsSaving(false);
   };
 
-  const handleDelete = (id: string) => {
-    setGates(gates.filter((g) => g.id !== id));
-    toast({ title: 'Berhasil', description: 'Data pintu air berhasil dihapus' });
+  const handleDelete = async (id: string) => {
+    await deleteGate(id);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -138,12 +140,12 @@ const Gates: React.FC = () => {
                 </div>
                 <div className="input-group">
                   <Label htmlFor="canalId">Saluran</Label>
-                  <Select name="canalId" defaultValue={editingGate?.canalId}>
+                  <Select name="canalId" defaultValue={editingGate?.canal_id}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih saluran" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockCanals.map((canal) => (
+                      {canals.map((canal) => (
                         <SelectItem key={canal.id} value={canal.id}>
                           {canal.name}
                         </SelectItem>
@@ -197,7 +199,10 @@ const Gates: React.FC = () => {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Batal
                 </Button>
-                <Button type="submit">Simpan</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Simpan
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -220,67 +225,73 @@ const Gates: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Saluran</TableHead>
-                  <TableHead>Tipe</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Kondisi</TableHead>
-                  <TableHead>Terakhir Dipelihara</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredGates.map((gate) => (
-                  <TableRow key={gate.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <DoorOpen className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{gate.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{gate.canalName}</TableCell>
-                    <TableCell>{typeLabels[gate.type]}</TableCell>
-                    <TableCell>
-                      <span className={cn('status-badge', statusStyles[gate.status].class)}>
-                        {statusStyles[gate.status].label}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className={cn('status-badge', conditionStyles[gate.condition].class)}>
-                        {conditionStyles[gate.condition].label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{gate.lastMaintenance}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingGate(gate);
-                            setIsDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(gate.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+          {filteredGates.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'Tidak ada data yang cocok' : 'Belum ada data pintu air'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Saluran</TableHead>
+                    <TableHead>Tipe</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Kondisi</TableHead>
+                    <TableHead>Terakhir Dipelihara</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredGates.map((gate) => (
+                    <TableRow key={gate.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <DoorOpen className="w-4 h-4 text-primary" />
+                          <span className="font-medium">{gate.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{gate.canal_name}</TableCell>
+                      <TableCell>{typeLabels[gate.type as keyof typeof typeLabels] || gate.type}</TableCell>
+                      <TableCell>
+                        <span className={cn('status-badge', statusStyles[gate.status as keyof typeof statusStyles]?.class || '')}>
+                          {statusStyles[gate.status as keyof typeof statusStyles]?.label || gate.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn('status-badge', conditionStyles[gate.condition as keyof typeof conditionStyles]?.class || '')}>
+                          {conditionStyles[gate.condition as keyof typeof conditionStyles]?.label || gate.condition}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{gate.last_maintenance || '-'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingGate(gate);
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(gate.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

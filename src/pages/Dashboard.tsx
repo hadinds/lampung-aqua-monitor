@@ -1,12 +1,20 @@
 import React from 'react';
-import { MapPin, Waves, DoorOpen, Activity, AlertTriangle, Droplets } from 'lucide-react';
+import { MapPin, Waves, DoorOpen, Activity, AlertTriangle, Droplets, Loader2 } from 'lucide-react';
 import StatCard from '@/components/dashboard/StatCard';
 import { WaterLevelChart, DischargeChart, AreaDistributionChart } from '@/components/dashboard/Charts';
 import AlertsList from '@/components/dashboard/AlertsList';
-import { mockDashboardStats } from '@/data/mockData';
+import { useDashboardStats } from '@/hooks/useIrrigationData';
 
 const Dashboard: React.FC = () => {
-  const stats = mockDashboardStats;
+  const { stats, loading } = useDashboardStats();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -54,12 +62,11 @@ const Dashboard: React.FC = () => {
           variant="default"
         />
         <StatCard
-          title="Monitoring Aktif"
+          title="Data Monitoring"
           value={stats.activeMonitoring}
-          subtitle="Titik pantau"
+          subtitle="Total pencatatan"
           icon={Activity}
           variant="success"
-          trend={{ value: 5.2, isPositive: true }}
         />
         <StatCard
           title="Peringatan Kritis"
