@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,43 +6,19 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   User,
   Bell,
   Shield,
   Database,
   Save,
   Key,
-  Users,
-  Pencil,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, StoredUser } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { user, users, updateUserCredentials } = useAuth();
-
-  // Edit user dialog state
-  const [editingUser, setEditingUser] = useState<StoredUser | null>(null);
-  const [editUsername, setEditUsername] = useState('');
-  const [editPassword, setEditPassword] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
+  const { user } = useAuth();
 
   const isAdmin = user?.role === 'admin';
 
@@ -53,67 +29,10 @@ const Settings: React.FC = () => {
     });
   };
 
-  const openEditDialog = (targetUser: StoredUser) => {
-    setEditingUser(targetUser);
-    setEditUsername(targetUser.username);
-    setEditPassword('');
-  };
-
-  const closeEditDialog = () => {
-    setEditingUser(null);
-    setEditUsername('');
-    setEditPassword('');
-  };
-
-  const handleCredentialUpdate = async () => {
-    if (!editingUser) return;
-
-    if (!editUsername) {
-      toast({
-        title: 'Error',
-        description: 'Username tidak boleh kosong',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsUpdating(true);
-    
-    try {
-      const result = await updateUserCredentials(
-        editingUser.id,
-        editUsername !== editingUser.username ? editUsername : undefined,
-        editPassword || undefined
-      );
-
-      if (result.success) {
-        toast({
-          title: 'Berhasil',
-          description: 'Kredensial user berhasil diperbarui',
-        });
-        closeEditDialog();
-      } else {
-        toast({
-          title: 'Gagal',
-          description: result.error || 'Gagal memperbarui kredensial',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Terjadi kesalahan saat memperbarui kredensial',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
   const roleLabels: Record<string, string> = {
     admin: 'Administrator',
-    field_officer: 'Petugas Lapangan',
-    manager: 'Kepala Dinas',
+    petugas: 'Petugas Lapangan',
+    kadis: 'Kepala Dinas',
   };
 
   return (
@@ -145,65 +64,16 @@ const Settings: React.FC = () => {
               <Input value={user?.name || ''} disabled className="bg-muted" />
             </div>
             <div className="input-group">
-              <Label>Username</Label>
-              <Input value={user?.username || ''} disabled className="bg-muted" />
+              <Label>Email</Label>
+              <Input value={user?.email || ''} disabled className="bg-muted" />
             </div>
             <div className="input-group">
               <Label>Role</Label>
-              <Input value={user?.role ? roleLabels[user.role] : ''} disabled className="bg-muted" />
+              <Input value={user?.role ? roleLabels[user.role] || user.role : ''} disabled className="bg-muted" />
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* User Management - Admin Only */}
-      {isAdmin && (
-        <Card className="shadow-card">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-warning/10">
-                <Users className="w-5 h-5 text-warning" />
-              </div>
-              <div>
-                <CardTitle className="text-base font-heading">Kelola Pengguna</CardTitle>
-                <CardDescription>Ubah username dan password pengguna (Hanya Admin)</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name}</TableCell>
-                    <TableCell>{u.username}</TableCell>
-                    <TableCell>{roleLabels[u.role]}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(u)}
-                        className="gap-1"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Edit
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Non-admin info */}
       {!isAdmin && (
@@ -344,47 +214,6 @@ const Settings: React.FC = () => {
           Simpan Pengaturan
         </Button>
       </div>
-
-      {/* Edit User Dialog */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && closeEditDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Kredensial - {editingUser?.name}</DialogTitle>
-            <DialogDescription>
-              Ubah username dan/atau password untuk user ini
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="input-group">
-              <Label htmlFor="editUsername">Username</Label>
-              <Input
-                id="editUsername"
-                value={editUsername}
-                onChange={(e) => setEditUsername(e.target.value)}
-                placeholder="Masukkan username"
-              />
-            </div>
-            <div className="input-group">
-              <Label htmlFor="editPassword">Password Baru</Label>
-              <Input
-                id="editPassword"
-                type="password"
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-                placeholder="Kosongkan jika tidak ingin mengubah"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeEditDialog}>
-              Batal
-            </Button>
-            <Button onClick={handleCredentialUpdate} disabled={isUpdating}>
-              {isUpdating ? 'Menyimpan...' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
