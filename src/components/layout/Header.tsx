@@ -22,8 +22,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, title = 'Dashboard' }) => 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -65,10 +65,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, title = 'Dashboard' }) => 
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                {user?.name.charAt(0)}
+                {user?.name?.charAt(0) || 'U'}
               </div>
               <span className="hidden sm:block text-sm font-medium">
-                {user?.name}
+                {user?.name || 'User'}
               </span>
             </Button>
           </DropdownMenuTrigger>
@@ -77,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, title = 'Dashboard' }) => 
               <div>
                 <p className="font-medium">{user?.name}</p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {user?.role.replace('_', ' ')}
+                  {user?.role}
                 </p>
               </div>
             </DropdownMenuLabel>

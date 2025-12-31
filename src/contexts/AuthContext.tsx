@@ -1,159 +1,164 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { User, UserRole } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
 
-// Context for authentication state management
+export type AppRole = 'admin' | 'petugas' | 'kadis';
 
-export interface StoredUser {
+export interface AuthUser {
   id: string;
   name: string;
   username: string;
-  password: string;
-  role: UserRole;
+  email: string;
+  role: AppRole;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
+  session: Session | null;
   isAuthenticated: boolean;
-  users: StoredUser[];
-  login: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  updateUserCredentials: (userId: string, newUsername?: string, newPassword?: string) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const defaultUsers: StoredUser[] = [
-  {
-    id: '1',
-    name: 'Administrator',
-    username: 'admin',
-    password: 'admin',
-    role: 'admin',
-  },
-  {
-    id: '2',
-    name: 'Petugas Lapangan',
-    username: 'petugas',
-    password: 'petugas',
-    role: 'field_officer',
-  },
-  {
-    id: '3',
-    name: 'Kepala Dinas',
-    username: 'kadis',
-    password: 'Kadis',
-    role: 'manager',
-  },
-];
-
-const STORAGE_KEY = 'simoni_users';
-
-function getStoredUsers(): StoredUser[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.error('Error reading stored users:', e);
-  }
-  // Initialize with default users
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultUsers));
-  return defaultUsers;
-}
-
-function saveUsers(users: StoredUser[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<StoredUser[]>(getStoredUsers);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sync users to localStorage whenever they change
-  useEffect(() => {
-    saveUsers(users);
-  }, [users]);
+  const fetchUserProfile = async (userId: string): Promise<AuthUser | null> => {
+    try {
+      // Get profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const foundUser = users.find(
-      u => u.username === username && u.password === password
-    );
-    
-    if (foundUser) {
-      setUser({
-        id: foundUser.id,
-        name: foundUser.name,
-        username: foundUser.username,
-        email: `${foundUser.username}@psda.lampung.go.id`,
-        role: foundUser.role,
-      });
-      return true;
-    }
-    return false;
-  }, [users]);
+      // Get role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-  const logout = useCallback(() => {
-    setUser(null);
-  }, []);
-
-  const updateUserCredentials = useCallback(async (
-    userId: string,
-    newUsername?: string,
-    newPassword?: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    // Only admin can update credentials
-    if (!user || user.role !== 'admin') {
-      return { success: false, error: 'Hanya admin yang dapat mengubah kredensial' };
-    }
-
-    // Find target user
-    const targetUser = users.find(u => u.id === userId);
-    if (!targetUser) {
-      return { success: false, error: 'User tidak ditemukan' };
-    }
-
-    // Check if new username already exists (if changing username)
-    if (newUsername && newUsername !== targetUser.username) {
-      const usernameExists = users.some(
-        u => u.username === newUsername && u.id !== userId
-      );
-      if (usernameExists) {
-        return { success: false, error: 'Username sudah digunakan' };
-      }
-    }
-
-    // Update credentials
-    const updatedUsers = users.map(u => {
-      if (u.id === userId) {
+      if (profile) {
         return {
-          ...u,
-          username: newUsername || u.username,
-          password: newPassword || u.password,
+          id: userId,
+          name: profile.name,
+          username: profile.username,
+          email: profile.username,
+          role: (roleData?.role as AppRole) || 'petugas',
         };
       }
-      return u;
+      return null;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Defer Supabase calls with setTimeout
+          setTimeout(async () => {
+            const authUser = await fetchUserProfile(session.user.id);
+            setUser(authUser);
+            setIsLoading(false);
+          }, 0);
+        } else {
+          setUser(null);
+          setIsLoading(false);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id).then((authUser) => {
+          setUser(authUser);
+          setIsLoading(false);
+        });
+      } else {
+        setIsLoading(false);
+      }
     });
 
-    setUsers(updatedUsers);
+    return () => subscription.unsubscribe();
+  }, []);
 
-    // If admin is updating their own credentials, update the session
-    if (userId === user.id && newUsername) {
-      setUser(prev => prev ? {
-        ...prev,
-        username: newUsername,
-        email: `${newUsername}@psda.lampung.go.id`,
-      } : null);
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Terjadi kesalahan saat login' };
     }
+  }, []);
 
-    return { success: true };
-  }, [user, users]);
+  const signup = useCallback(async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            name,
+            username: email,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.includes('already registered')) {
+          return { success: false, error: 'Email sudah terdaftar. Silakan login.' };
+        }
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Terjadi kesalahan saat mendaftar' };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, users, login, logout, updateUserCredentials }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session,
+      isAuthenticated: !!session, 
+      isLoading,
+      login, 
+      signup,
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );
