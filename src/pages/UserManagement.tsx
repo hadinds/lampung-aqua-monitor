@@ -125,31 +125,26 @@ const UserManagement: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const email = formUsername.includes('@') ? formUsername : `${formUsername}@irrigation.local`;
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: formPassword,
-        options: {
-          data: {
-            name: formName,
-            username: formUsername,
-          },
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
         },
+        body: JSON.stringify({
+          username: formUsername,
+          password: formPassword,
+          name: formName,
+          role: formRole,
+        }),
       });
 
-      if (authError) throw authError;
+      const result = await response.json();
 
-      if (authData.user) {
-        // Update role if not default
-        if (formRole !== 'petugas') {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .update({ role: formRole })
-            .eq('user_id', authData.user.id);
-
-          if (roleError) console.error('Error updating role:', roleError);
-        }
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal menambahkan pengguna');
       }
 
       toast({
@@ -246,11 +241,29 @@ const UserManagement: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Note: Changing other user's password requires admin API or edge function
-      // For now, show a message that this feature requires backend setup
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          userId: selectedUser.user_id,
+          newPassword: newPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal mengubah password');
+      }
+
       toast({
-        title: 'Info',
-        description: 'Fitur ubah password memerlukan konfigurasi tambahan di backend',
+        title: 'Berhasil',
+        description: 'Password berhasil diubah',
       });
 
       setIsPasswordDialogOpen(false);
