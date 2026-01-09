@@ -14,6 +14,7 @@ import {
   Droplets,
   ChevronRight,
   MapPin,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,7 +34,8 @@ const navItems: NavItem[] = [
   { title: 'Pintu Air', href: '/gates', icon: DoorOpen },
   { title: 'Monitoring', href: '/monitoring', icon: Activity },
   { title: 'Laporan', href: '/reports', icon: FileText },
-  { title: 'Pengaturan', href: '/settings', icon: Settings, roles: ['admin'] },
+  { title: 'Manajemen User', href: '/users', icon: Users, roles: ['admin'] },
+  { title: 'Pengaturan', href: '/settings', icon: Settings },
 ];
 
 interface SidebarProps {

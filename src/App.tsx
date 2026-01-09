@@ -16,6 +16,7 @@ import Monitoring from "./pages/Monitoring";
 import Reports from "./pages/Reports";
 import MapPage from "./pages/MapPage";
 import Settings from "./pages/Settings";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,28 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (user?.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -71,6 +94,11 @@ const AppRoutes = () => {
         <Route path="/reports" element={<Reports />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/users" element={
+          <AdminRoute>
+            <UserManagement />
+          </AdminRoute>
+        } />
       </Route>
 
       <Route path="*" element={<NotFound />} />
