@@ -63,7 +63,7 @@ export interface DbAlert {
   created_at: string;
 }
 
-// Hook for Irrigation Areas
+// Hook for Irrigation Areas with realtime
 export function useIrrigationAreas() {
   const [areas, setAreas] = useState<DbIrrigationArea[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +88,22 @@ export function useIrrigationAreas() {
     fetchAreas();
   }, [fetchAreas]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('irrigation_areas_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'irrigation_areas' },
+        () => fetchAreas()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAreas]);
+
   const createArea = async (area: Omit<DbIrrigationArea, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
       .from('irrigation_areas')
@@ -100,7 +116,6 @@ export function useIrrigationAreas() {
       return null;
     }
     toast({ title: 'Berhasil', description: 'Daerah irigasi berhasil ditambahkan' });
-    setAreas([data as DbIrrigationArea, ...areas]);
     return data;
   };
 
@@ -117,7 +132,6 @@ export function useIrrigationAreas() {
       return null;
     }
     toast({ title: 'Berhasil', description: 'Daerah irigasi berhasil diperbarui' });
-    setAreas(areas.map(a => a.id === id ? data as DbIrrigationArea : a));
     return data;
   };
 
@@ -132,14 +146,13 @@ export function useIrrigationAreas() {
       return false;
     }
     toast({ title: 'Berhasil', description: 'Daerah irigasi berhasil dihapus' });
-    setAreas(areas.filter(a => a.id !== id));
     return true;
   };
 
   return { areas, loading, fetchAreas, createArea, updateArea, deleteArea };
 }
 
-// Hook for Canals
+// Hook for Canals with realtime
 export function useCanals() {
   const [canals, setCanals] = useState<DbCanal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,36 +182,47 @@ export function useCanals() {
     fetchCanals();
   }, [fetchCanals]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('canals_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'canals' },
+        () => fetchCanals()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchCanals]);
+
   const createCanal = async (canal: { area_id: string; name: string; length: number; width: number; capacity: number; status: string; last_inspection: string | null }) => {
     const { data, error } = await supabase.from('canals').insert(canal).select('*, irrigation_areas(name)').single();
     if (error) { toast({ title: 'Error', description: 'Gagal menambah saluran', variant: 'destructive' }); return null; }
     toast({ title: 'Berhasil', description: 'Saluran berhasil ditambahkan' });
-    const newCanal = { ...(data as any), area_name: (data as any).irrigation_areas?.name || '' } as DbCanal;
-    setCanals([newCanal, ...canals]);
-    return newCanal;
+    return data;
   };
 
   const updateCanal = async (id: string, canal: Partial<DbCanal>) => {
     const { data, error } = await supabase.from('canals').update(canal).eq('id', id).select('*, irrigation_areas(name)').single();
     if (error) { toast({ title: 'Error', description: 'Gagal memperbarui saluran', variant: 'destructive' }); return null; }
     toast({ title: 'Berhasil', description: 'Saluran berhasil diperbarui' });
-    const updated = { ...(data as any), area_name: (data as any).irrigation_areas?.name || '' } as DbCanal;
-    setCanals(canals.map(c => c.id === id ? updated : c));
-    return updated;
+    return data;
   };
 
   const deleteCanal = async (id: string) => {
     const { error } = await supabase.from('canals').delete().eq('id', id);
     if (error) { toast({ title: 'Error', description: 'Gagal menghapus saluran', variant: 'destructive' }); return false; }
     toast({ title: 'Berhasil', description: 'Saluran berhasil dihapus' });
-    setCanals(canals.filter(c => c.id !== id));
     return true;
   };
 
   return { canals, loading, fetchCanals, createCanal, updateCanal, deleteCanal };
 }
 
-// Hook for Gates
+// Hook for Gates with realtime
 export function useGates() {
   const [gates, setGates] = useState<DbGate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,36 +241,47 @@ export function useGates() {
 
   useEffect(() => { fetchGates(); }, [fetchGates]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('gates_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'gates' },
+        () => fetchGates()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchGates]);
+
   const createGate = async (gate: { canal_id: string; name: string; type: string; status: string; condition: string; last_maintenance: string | null }) => {
     const { data, error } = await supabase.from('gates').insert(gate).select('*, canals(name)').single();
     if (error) { toast({ title: 'Error', description: 'Gagal menambah pintu air', variant: 'destructive' }); return null; }
     toast({ title: 'Berhasil', description: 'Pintu air berhasil ditambahkan' });
-    const newGate = { ...(data as any), canal_name: (data as any).canals?.name || '' } as DbGate;
-    setGates([newGate, ...gates]);
-    return newGate;
+    return data;
   };
 
   const updateGate = async (id: string, gate: Partial<DbGate>) => {
     const { data, error } = await supabase.from('gates').update(gate).eq('id', id).select('*, canals(name)').single();
     if (error) { toast({ title: 'Error', description: 'Gagal memperbarui pintu air', variant: 'destructive' }); return null; }
     toast({ title: 'Berhasil', description: 'Pintu air berhasil diperbarui' });
-    const updated = { ...(data as any), canal_name: (data as any).canals?.name || '' } as DbGate;
-    setGates(gates.map(g => g.id === id ? updated : g));
-    return updated;
+    return data;
   };
 
   const deleteGate = async (id: string) => {
     const { error } = await supabase.from('gates').delete().eq('id', id);
     if (error) { toast({ title: 'Error', description: 'Gagal menghapus pintu air', variant: 'destructive' }); return false; }
     toast({ title: 'Berhasil', description: 'Pintu air berhasil dihapus' });
-    setGates(gates.filter(g => g.id !== id));
     return true;
   };
 
   return { gates, loading, fetchGates, createGate, updateGate, deleteGate };
 }
 
-// Hook for Monitoring Data
+// Hook for Monitoring Data with realtime
 export function useMonitoringData() {
   const [data, setData] = useState<DbMonitoringData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,19 +300,33 @@ export function useMonitoringData() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('monitoring_data_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monitoring_data' },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
+
   const createMonitoringData = async (monitoringData: { gate_id: string; water_level: number; discharge: number; condition: string; recorded_by: string | null; notes: string | null }) => {
     const { data: newData, error } = await supabase.from('monitoring_data').insert(monitoringData).select('*, gates(name)').single();
     if (error) { toast({ title: 'Error', description: 'Gagal menyimpan data monitoring', variant: 'destructive' }); return null; }
     toast({ title: 'Berhasil', description: 'Data monitoring berhasil disimpan' });
-    const newItem = { ...(newData as any), gate_name: (newData as any).gates?.name || '' } as DbMonitoringData;
-    setData([newItem, ...data]);
-    return newItem;
+    return newData;
   };
 
   return { data, loading, fetchData, createMonitoringData };
 }
 
-// Hook for Alerts
+// Hook for Alerts with realtime
 export function useAlerts() {
   const [alerts, setAlerts] = useState<DbAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -292,10 +341,27 @@ export function useAlerts() {
   }, [toast]);
 
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('alerts_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'alerts' },
+        () => fetchAlerts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAlerts]);
+
   return { alerts, loading, fetchAlerts };
 }
 
-// Hook for Dashboard Stats
+// Hook for Dashboard Stats with realtime
 export function useDashboardStats() {
   const [stats, setStats] = useState({ totalAreas: 0, totalCanals: 0, totalGates: 0, activeMonitoring: 0, criticalAlerts: 0, waterVolume: 0 });
   const [loading, setLoading] = useState(true);
@@ -314,5 +380,21 @@ export function useDashboardStats() {
   }, []);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  // Realtime subscriptions for all related tables
+  useEffect(() => {
+    const channels = [
+      supabase.channel('dashboard_areas').on('postgres_changes', { event: '*', schema: 'public', table: 'irrigation_areas' }, () => fetchStats()).subscribe(),
+      supabase.channel('dashboard_canals').on('postgres_changes', { event: '*', schema: 'public', table: 'canals' }, () => fetchStats()).subscribe(),
+      supabase.channel('dashboard_gates').on('postgres_changes', { event: '*', schema: 'public', table: 'gates' }, () => fetchStats()).subscribe(),
+      supabase.channel('dashboard_monitoring').on('postgres_changes', { event: '*', schema: 'public', table: 'monitoring_data' }, () => fetchStats()).subscribe(),
+      supabase.channel('dashboard_alerts').on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, () => fetchStats()).subscribe(),
+    ];
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [fetchStats]);
+
   return { stats, loading, fetchStats };
 }
