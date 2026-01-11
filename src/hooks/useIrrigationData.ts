@@ -50,6 +50,7 @@ export interface DbMonitoringData {
   condition: string;
   recorded_by: string | null;
   notes: string | null;
+  video_url: string | null;
   recorded_at: string;
   gate_name?: string;
 }
@@ -316,7 +317,7 @@ export function useMonitoringData() {
     };
   }, [fetchData]);
 
-  const createMonitoringData = async (monitoringData: { gate_id: string; water_level: number; discharge: number; condition: string; recorded_by: string | null; notes: string | null }) => {
+  const createMonitoringData = async (monitoringData: { gate_id: string; water_level: number; discharge: number; condition: string; recorded_by: string | null; notes: string | null; video_url: string | null }) => {
     const { data: newData, error } = await supabase.from('monitoring_data').insert(monitoringData).select('*, gates(name)').single();
     if (error) { toast({ title: 'Error', description: 'Gagal menyimpan data monitoring', variant: 'destructive' }); return null; }
     toast({ title: 'Berhasil', description: 'Data monitoring berhasil disimpan' });
