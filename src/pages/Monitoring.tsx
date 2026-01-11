@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Activity, Droplets, Gauge, Loader2 } from 'lucide-react';
+import { Plus, Search, Activity, Droplets, Gauge, Loader2, Video, ExternalLink } from 'lucide-react';
 import { useMonitoringData, useGates } from '@/hooks/useIrrigationData';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +66,7 @@ const Monitoring: React.FC = () => {
       condition: formData.get('condition') as string,
       recorded_by: user?.id || null,
       notes: formData.get('notes') as string || null,
+      video_url: formData.get('videoUrl') as string || null,
     };
 
     await createMonitoringData(monitoringData);
@@ -168,6 +169,19 @@ const Monitoring: React.FC = () => {
                   </Select>
                 </div>
                 <div className="input-group">
+                  <Label htmlFor="videoUrl">Link Video (Opsional)</Label>
+                  <div className="relative">
+                    <Video className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="videoUrl"
+                      name="videoUrl"
+                      type="url"
+                      placeholder="https://youtube.com/watch?v=..."
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div className="input-group">
                   <Label htmlFor="notes">Catatan (Opsional)</Label>
                   <Textarea
                     id="notes"
@@ -268,6 +282,7 @@ const Monitoring: React.FC = () => {
                     <TableHead className="text-right">Debit (m³/s)</TableHead>
                     <TableHead>Kondisi</TableHead>
                     <TableHead>Waktu</TableHead>
+                    <TableHead>Video</TableHead>
                     <TableHead>Catatan</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -284,6 +299,21 @@ const Monitoring: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {new Date(item.recorded_at).toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell>
+                        {item.video_url ? (
+                          <a 
+                            href={item.video_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Video className="w-4 h-4" />
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground max-w-[200px] truncate">
                         {item.notes || '-'}

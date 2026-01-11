@@ -177,6 +177,7 @@ export type Database = {
           notes: string | null
           recorded_at: string
           recorded_by: string | null
+          video_url: string | null
           water_level: number
         }
         Insert: {
@@ -187,6 +188,7 @@ export type Database = {
           notes?: string | null
           recorded_at?: string
           recorded_by?: string | null
+          video_url?: string | null
           water_level?: number
         }
         Update: {
@@ -197,6 +199,7 @@ export type Database = {
           notes?: string | null
           recorded_at?: string
           recorded_by?: string | null
+          video_url?: string | null
           water_level?: number
         }
         Relationships: [
