@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,10 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Activity, Droplets, Gauge, Loader2, Video, ExternalLink } from 'lucide-react';
-import { useMonitoringData, useGates } from '@/hooks/useIrrigationData';
+import { Plus, Search, Activity, Droplets, Gauge, Loader2, Video, ExternalLink, Edit, Trash2 } from 'lucide-react';
+import { useMonitoringData, useGates, DbMonitoringData } from '@/hooks/useIrrigationData';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const conditionStyles = {
   normal: { label: 'Normal', class: 'status-badge-success' },
@@ -40,38 +41,73 @@ const conditionStyles = {
 };
 
 const Monitoring: React.FC = () => {
-  const { data, loading, createMonitoringData } = useMonitoringData();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  const { data, loading, createMonitoringData, updateMonitoringData, deleteMonitoringData } = useMonitoringData();
   const { gates } = useGates();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const filteredData = data.filter(
-    (item) =>
-      (item.gate_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [editingItem, setEditingItem] = useState<DbMonitoringData | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const filteredData = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return data.filter((item) => (item.gate_name || '').toLowerCase().includes(q));
+  }, [data, searchQuery]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
     const formData = new FormData(e.currentTarget);
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user: sbUser } } = await supabase.auth.getUser();
 
     const monitoringData = {
       gate_id: formData.get('gateId') as string,
       water_level: Number(formData.get('waterLevel')),
       discharge: Number(formData.get('discharge')),
       condition: formData.get('condition') as string,
-      recorded_by: user?.id || null,
-      notes: formData.get('notes') as string || null,
-      video_url: formData.get('videoUrl') as string || null,
+      recorded_by: sbUser?.id || null,
+      notes: (formData.get('notes') as string) || null,
+      video_url: (formData.get('videoUrl') as string) || null,
     };
 
     await createMonitoringData(monitoringData);
     setIsDialogOpen(false);
     setIsSaving(false);
+  };
+
+  const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    setIsEditing(true);
+    const formData = new FormData(e.currentTarget);
+
+    const patch = {
+      gate_id: formData.get('gateId') as string,
+      water_level: Number(formData.get('waterLevel')),
+      discharge: Number(formData.get('discharge')),
+      condition: formData.get('condition') as string,
+      notes: (formData.get('notes') as string) || null,
+      video_url: (formData.get('videoUrl') as string) || null,
+    };
+
+    await updateMonitoringData(editingItem.id, patch);
+    setIsEditDialogOpen(false);
+    setEditingItem(null);
+    setIsEditing(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    const ok = window.confirm('Yakin ingin menghapus data monitoring ini?');
+    if (!ok) return;
+    await deleteMonitoringData(id);
   };
 
   if (loading) {
@@ -252,6 +288,106 @@ const Monitoring: React.FC = () => {
         </Card>
       </div>
 
+      {/* Admin-only edit dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <form onSubmit={handleUpdate}>
+            <DialogHeader>
+              <DialogTitle>Edit Data Monitoring</DialogTitle>
+              <DialogDescription>Hanya admin yang dapat mengubah atau menghapus data.</DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="input-group">
+                <Label htmlFor="editGateId">Pintu Air</Label>
+                <Select name="gateId" defaultValue={editingItem?.gate_id} required>
+                  <SelectTrigger id="editGateId">
+                    <SelectValue placeholder="Pilih pintu air" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {gates.map((gate) => (
+                      <SelectItem key={gate.id} value={gate.id}>
+                        {gate.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="input-group">
+                  <Label htmlFor="editWaterLevel">Tinggi Muka Air (m)</Label>
+                  <Input
+                    id="editWaterLevel"
+                    name="waterLevel"
+                    type="number"
+                    step="0.01"
+                    defaultValue={editingItem?.water_level ?? 0}
+                    required
+                  />
+                </div>
+                <div className="input-group">
+                  <Label htmlFor="editDischarge">Debit (m³/s)</Label>
+                  <Input
+                    id="editDischarge"
+                    name="discharge"
+                    type="number"
+                    step="0.1"
+                    defaultValue={editingItem?.discharge ?? 0}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <Label htmlFor="editCondition">Kondisi</Label>
+                <Select name="condition" defaultValue={editingItem?.condition || 'normal'}>
+                  <SelectTrigger id="editCondition">
+                    <SelectValue placeholder="Pilih kondisi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="warning">Peringatan</SelectItem>
+                    <SelectItem value="critical">Kritis</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="input-group">
+                <Label htmlFor="editVideoUrl">Link Video (Opsional)</Label>
+                <Input
+                  id="editVideoUrl"
+                  name="videoUrl"
+                  type="url"
+                  defaultValue={editingItem?.video_url || ''}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="input-group">
+                <Label htmlFor="editNotes">Catatan (Opsional)</Label>
+                <Textarea
+                  id="editNotes"
+                  name="notes"
+                  rows={3}
+                  defaultValue={editingItem?.notes || ''}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={isEditing}>
+                {isEditing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Simpan Perubahan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -284,6 +420,7 @@ const Monitoring: React.FC = () => {
                     <TableHead>Waktu</TableHead>
                     <TableHead>Video</TableHead>
                     <TableHead>Catatan</TableHead>
+                    {isAdmin ? <TableHead className="text-right">Aksi</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -302,9 +439,9 @@ const Monitoring: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {item.video_url ? (
-                          <a 
-                            href={item.video_url} 
-                            target="_blank" 
+                          <a
+                            href={item.video_url}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-primary hover:underline"
                           >
@@ -318,6 +455,32 @@ const Monitoring: React.FC = () => {
                       <TableCell className="text-muted-foreground max-w-[200px] truncate">
                         {item.notes || '-'}
                       </TableCell>
+
+                      {isAdmin ? (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingItem(item);
+                                setIsEditDialogOpen(true);
+                              }}
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(item.id)}
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -331,3 +494,4 @@ const Monitoring: React.FC = () => {
 };
 
 export default Monitoring;
+
