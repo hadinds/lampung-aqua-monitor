@@ -3,6 +3,7 @@ import { MapPin, Waves, DoorOpen, Activity, AlertTriangle, Droplets, Loader2 } f
 import StatCard from '@/components/dashboard/StatCard';
 import { WaterLevelChart, DischargeChart, AreaDistributionChart } from '@/components/dashboard/Charts';
 import AlertsList from '@/components/dashboard/AlertsList';
+import RecentVideos from '@/components/dashboard/RecentVideos';
 import { useDashboardStats } from '@/hooks/useIrrigationData';
 
 const Dashboard: React.FC = () => {
@@ -95,7 +96,8 @@ const Dashboard: React.FC = () => {
         <div className="lg:col-span-1">
           <AreaDistributionChart />
         </div>
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          <RecentVideos />
           <AlertsList />
         </div>
       </div>

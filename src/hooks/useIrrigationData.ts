@@ -120,8 +120,11 @@ export function useIrrigationAreas() {
       toastRef.current({ title: 'Error', description: 'Gagal menambah daerah irigasi', variant: 'destructive' });
       return null;
     }
+
+    const created = data as DbIrrigationArea;
+    setAreas((prev) => [created, ...prev.filter((a) => a.id !== created.id)]);
     toastRef.current({ title: 'Berhasil', description: 'Daerah irigasi berhasil ditambahkan' });
-    return data;
+    return created;
   };
 
   const updateArea = async (id: string, area: Partial<DbIrrigationArea>) => {
@@ -136,8 +139,11 @@ export function useIrrigationAreas() {
       toastRef.current({ title: 'Error', description: 'Gagal memperbarui daerah irigasi', variant: 'destructive' });
       return null;
     }
+
+    const updated = data as DbIrrigationArea;
+    setAreas((prev) => prev.map((a) => (a.id === id ? updated : a)));
     toastRef.current({ title: 'Berhasil', description: 'Daerah irigasi berhasil diperbarui' });
-    return data;
+    return updated;
   };
 
   const deleteArea = async (id: string) => {
@@ -150,6 +156,8 @@ export function useIrrigationAreas() {
       toastRef.current({ title: 'Error', description: 'Gagal menghapus daerah irigasi', variant: 'destructive' });
       return false;
     }
+
+    setAreas((prev) => prev.filter((a) => a.id !== id));
     toastRef.current({ title: 'Berhasil', description: 'Daerah irigasi berhasil dihapus' });
     return true;
   };
@@ -207,23 +215,43 @@ export function useCanals() {
     };
   }, [fetchCanals]);
 
+  const mapCanalRow = (c: any): DbCanal => ({
+    ...c,
+    area_name: c.irrigation_areas?.name || '',
+    irrigation_areas: undefined,
+  });
+
   const createCanal = async (canal: { area_id: string; name: string; length: number; width: number; capacity: number; status: string; last_inspection: string | null }) => {
     const { data, error } = await supabase.from('canals').insert(canal).select('*, irrigation_areas(name)').single();
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal menambah saluran', variant: 'destructive' }); return null; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal menambah saluran', variant: 'destructive' });
+      return null;
+    }
+    const created = mapCanalRow(data);
+    setCanals((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
     toastRef.current({ title: 'Berhasil', description: 'Saluran berhasil ditambahkan' });
-    return data;
+    return created;
   };
 
   const updateCanal = async (id: string, canal: Partial<DbCanal>) => {
     const { data, error } = await supabase.from('canals').update(canal).eq('id', id).select('*, irrigation_areas(name)').single();
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal memperbarui saluran', variant: 'destructive' }); return null; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal memperbarui saluran', variant: 'destructive' });
+      return null;
+    }
+    const updated = mapCanalRow(data);
+    setCanals((prev) => prev.map((c) => (c.id === id ? updated : c)));
     toastRef.current({ title: 'Berhasil', description: 'Saluran berhasil diperbarui' });
-    return data;
+    return updated;
   };
 
   const deleteCanal = async (id: string) => {
     const { error } = await supabase.from('canals').delete().eq('id', id);
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal menghapus saluran', variant: 'destructive' }); return false; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal menghapus saluran', variant: 'destructive' });
+      return false;
+    }
+    setCanals((prev) => prev.filter((c) => c.id !== id));
     toastRef.current({ title: 'Berhasil', description: 'Saluran berhasil dihapus' });
     return true;
   };
@@ -272,23 +300,43 @@ export function useGates() {
     };
   }, [fetchGates]);
 
+  const mapGateRow = (g: any): DbGate => ({
+    ...g,
+    canal_name: g.canals?.name || '',
+    canals: undefined,
+  });
+
   const createGate = async (gate: { canal_id: string; name: string; type: string; status: string; condition: string; last_maintenance: string | null }) => {
     const { data, error } = await supabase.from('gates').insert(gate).select('*, canals(name)').single();
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal menambah pintu air', variant: 'destructive' }); return null; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal menambah pintu air', variant: 'destructive' });
+      return null;
+    }
+    const created = mapGateRow(data);
+    setGates((prev) => [created, ...prev.filter((g) => g.id !== created.id)]);
     toastRef.current({ title: 'Berhasil', description: 'Pintu air berhasil ditambahkan' });
-    return data;
+    return created;
   };
 
   const updateGate = async (id: string, gate: Partial<DbGate>) => {
     const { data, error } = await supabase.from('gates').update(gate).eq('id', id).select('*, canals(name)').single();
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal memperbarui pintu air', variant: 'destructive' }); return null; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal memperbarui pintu air', variant: 'destructive' });
+      return null;
+    }
+    const updated = mapGateRow(data);
+    setGates((prev) => prev.map((g) => (g.id === id ? updated : g)));
     toastRef.current({ title: 'Berhasil', description: 'Pintu air berhasil diperbarui' });
-    return data;
+    return updated;
   };
 
   const deleteGate = async (id: string) => {
     const { error } = await supabase.from('gates').delete().eq('id', id);
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal menghapus pintu air', variant: 'destructive' }); return false; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal menghapus pintu air', variant: 'destructive' });
+      return false;
+    }
+    setGates((prev) => prev.filter((g) => g.id !== id));
     toastRef.current({ title: 'Berhasil', description: 'Pintu air berhasil dihapus' });
     return true;
   };
@@ -337,14 +385,56 @@ export function useMonitoringData() {
     };
   }, [fetchData]);
 
+  const mapMonitoringRow = (m: any): DbMonitoringData => ({
+    ...m,
+    gate_name: m.gates?.name || '',
+    gates: undefined,
+  });
+
   const createMonitoringData = async (monitoringData: { gate_id: string; water_level: number; discharge: number; condition: string; recorded_by: string | null; notes: string | null; video_url: string | null }) => {
     const { data: newData, error } = await supabase.from('monitoring_data').insert(monitoringData).select('*, gates(name)').single();
-    if (error) { toastRef.current({ title: 'Error', description: 'Gagal menyimpan data monitoring', variant: 'destructive' }); return null; }
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal menyimpan data monitoring', variant: 'destructive' });
+      return null;
+    }
+    const created = mapMonitoringRow(newData);
+    setData((prev) => [created, ...prev.filter((d) => d.id !== created.id)]);
     toastRef.current({ title: 'Berhasil', description: 'Data monitoring berhasil disimpan' });
-    return newData;
+    return created;
   };
 
-  return { data, loading, fetchData, createMonitoringData };
+  const updateMonitoringData = async (id: string, patch: Partial<DbMonitoringData>) => {
+    const { data: updatedRow, error } = await supabase
+      .from('monitoring_data')
+      .update(patch)
+      .eq('id', id)
+      .select('*, gates(name)')
+      .single();
+
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal memperbarui data monitoring', variant: 'destructive' });
+      return null;
+    }
+
+    const updated = mapMonitoringRow(updatedRow);
+    setData((prev) => prev.map((d) => (d.id === id ? updated : d)));
+    toastRef.current({ title: 'Berhasil', description: 'Data monitoring berhasil diperbarui' });
+    return updated;
+  };
+
+  const deleteMonitoringData = async (id: string) => {
+    const { error } = await supabase.from('monitoring_data').delete().eq('id', id);
+    if (error) {
+      toastRef.current({ title: 'Error', description: 'Gagal menghapus data monitoring', variant: 'destructive' });
+      return false;
+    }
+
+    setData((prev) => prev.filter((d) => d.id !== id));
+    toastRef.current({ title: 'Berhasil', description: 'Data monitoring berhasil dihapus' });
+    return true;
+  };
+
+  return { data, loading, fetchData, createMonitoringData, updateMonitoringData, deleteMonitoringData };
 }
 
 // Hook for Alerts with realtime
