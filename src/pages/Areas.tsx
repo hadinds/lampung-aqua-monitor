@@ -64,8 +64,8 @@ const Areas: React.FC = () => {
       location: formData.get('location') as string,
       total_area: Number(formData.get('totalArea')),
       status: formData.get('status') as string,
-      lat: editingArea?.lat || -5.0,
-      lng: editingArea?.lng || 105.0,
+      lat: Number(formData.get('lat')) || -5.0,
+      lng: Number(formData.get('lng')) || 105.0,
     };
 
     if (editingArea) {
@@ -150,6 +150,32 @@ const Areas: React.FC = () => {
                     placeholder="Contoh: 15000"
                     required
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="input-group">
+                    <Label htmlFor="lat">Lintang (Latitude)</Label>
+                    <Input
+                      id="lat"
+                      name="lat"
+                      type="number"
+                      step="0.000001"
+                      defaultValue={editingArea?.lat ?? -5.0}
+                      placeholder="-5.123456"
+                      required
+                    />
+                  </div>
+                  <div className="input-group">
+                    <Label htmlFor="lng">Bujur (Longitude)</Label>
+                    <Input
+                      id="lng"
+                      name="lng"
+                      type="number"
+                      step="0.000001"
+                      defaultValue={editingArea?.lng ?? 105.0}
+                      placeholder="105.123456"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="input-group">
                   <Label htmlFor="status">Status</Label>
