@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { useIrrigationAreas, DbIrrigationArea } from '@/hooks/useIrrigationData';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const statusStyles = {
@@ -38,6 +39,9 @@ const statusStyles = {
 };
 
 const Areas: React.FC = () => {
+  const { user } = useAuth();
+  const canManage = user?.role === 'admin' || user?.role === 'kadis';
+  
   const { areas, loading, createArea, updateArea, deleteArea } = useIrrigationAreas();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -97,13 +101,14 @@ const Areas: React.FC = () => {
           </p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingArea(null)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Tambah Daerah
-            </Button>
-          </DialogTrigger>
+        {canManage && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingArea(null)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Tambah Daerah
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSave}>
               <DialogHeader>
@@ -172,6 +177,7 @@ const Areas: React.FC = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="shadow-card">
@@ -203,7 +209,7 @@ const Areas: React.FC = () => {
                     <TableHead>Lokasi</TableHead>
                     <TableHead className="text-right">Luas (Ha)</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
+                    {canManage && <TableHead className="text-right">Aksi</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -222,27 +228,29 @@ const Areas: React.FC = () => {
                           {statusStyles[area.status as keyof typeof statusStyles]?.label || area.status}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditingArea(area);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(area.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {canManage && (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingArea(area);
+                                setIsDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(area.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
