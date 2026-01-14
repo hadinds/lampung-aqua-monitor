@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, DoorOpen, Loader2 } from 'lucide-react';
 import { useGates, useCanals, DbGate } from '@/hooks/useIrrigationData';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const statusStyles = {
@@ -50,6 +51,9 @@ const typeLabels = {
 };
 
 const Gates: React.FC = () => {
+  const { user } = useAuth();
+  const canManage = user?.role === 'admin' || user?.role === 'kadis';
+  
   const { gates, loading, createGate, updateGate, deleteGate } = useGates();
   const { canals } = useCanals();
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,13 +114,14 @@ const Gates: React.FC = () => {
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingGate(null)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Tambah Pintu
-            </Button>
-          </DialogTrigger>
+        {canManage && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingGate(null)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Tambah Pintu
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSave}>
               <DialogHeader>
@@ -207,6 +212,7 @@ const Gates: React.FC = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="shadow-card">
@@ -240,7 +246,7 @@ const Gates: React.FC = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>Kondisi</TableHead>
                     <TableHead>Terakhir Dipelihara</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
+                    {canManage && <TableHead className="text-right">Aksi</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -265,27 +271,29 @@ const Gates: React.FC = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{gate.last_maintenance || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditingGate(gate);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(gate.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {canManage && (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingGate(gate);
+                                setIsDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(gate.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

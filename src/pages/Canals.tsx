@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, Waves, Loader2 } from 'lucide-react';
 import { useCanals, useIrrigationAreas, DbCanal } from '@/hooks/useIrrigationData';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const statusStyles = {
@@ -38,6 +39,9 @@ const statusStyles = {
 };
 
 const Canals: React.FC = () => {
+  const { user } = useAuth();
+  const canManage = user?.role === 'admin' || user?.role === 'kadis';
+  
   const { canals, loading, createCanal, updateCanal, deleteCanal } = useCanals();
   const { areas } = useIrrigationAreas();
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,13 +103,14 @@ const Canals: React.FC = () => {
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingCanal(null)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Tambah Saluran
-            </Button>
-          </DialogTrigger>
+        {canManage && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingCanal(null)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Tambah Saluran
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSave}>
               <DialogHeader>
@@ -204,6 +209,7 @@ const Canals: React.FC = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="shadow-card">
@@ -237,7 +243,7 @@ const Canals: React.FC = () => {
                     <TableHead className="text-right">Lebar (m)</TableHead>
                     <TableHead className="text-right">Kapasitas</TableHead>
                     <TableHead>Kondisi</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
+                    {canManage && <TableHead className="text-right">Aksi</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -258,27 +264,29 @@ const Canals: React.FC = () => {
                           {statusStyles[canal.status as keyof typeof statusStyles]?.label || canal.status}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditingCanal(canal);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(canal.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {canManage && (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingCanal(canal);
+                                setIsDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(canal.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
