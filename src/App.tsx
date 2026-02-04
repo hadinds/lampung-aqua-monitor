@@ -17,6 +17,7 @@ import Reports from "./pages/Reports";
 import MapPage from "./pages/MapPage";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
+import DatabaseDiagram from "./pages/DatabaseDiagram";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,12 @@ const AppRoutes = () => {
           </AdminRoute>
         } />
       </Route>
+
+      <Route path="/database-diagram" element={
+        <ProtectedRoute>
+          <DatabaseDiagram />
+        </ProtectedRoute>
+      } />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
